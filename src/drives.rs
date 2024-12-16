@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     ffi::{OsStr, OsString},
     os::unix::ffi::{OsStrExt, OsStringExt},
     sync::{Arc, Mutex},
@@ -6,19 +7,20 @@ use std::{
 
 use crate::mountpoints;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block {
-    pub id: String,
+    pub object_path: String,
     pub dev: String,
     pub label: String,
     pub mount: Option<String>,
     pub fstype: String,
+    pub mounted: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Drive {
     pub id: String,
-    pub path: String,
+    pub object_path: String,
     pub model: String,
     pub ejectable: bool,
     pub blocks: Vec<Block>,
@@ -44,14 +46,14 @@ pub async fn collect_drives_from_udisk() -> udisks2::Result<Vec<Drive>> {
         let path = path.to_string();
         if let Ok(drv) = i.drive().await {
             let drv = Drive {
-                path,
+                object_path: path,
                 id: drv.id().await?,
                 model: drv.model().await?,
                 ejectable: drv.ejectable().await?,
                 blocks: Vec::new(),
             };
 
-            if let Some(d) = drives.iter_mut().find(|i| i.path == drv.path) {
+            if let Some(d) = drives.iter_mut().find(|i| i.object_path == drv.object_path) {
                 d.model = drv.model;
                 d.ejectable = drv.ejectable;
                 d.id = drv.id;
@@ -61,7 +63,7 @@ pub async fn collect_drives_from_udisk() -> udisks2::Result<Vec<Drive>> {
         } else if let Ok(blk) = i.block().await {
             let drv_path = blk.drive().await?.to_string();
             let block = Block {
-                id: blk.id().await?,
+                object_path: path,
                 dev: String::from_utf8_lossy(&blk.device().await?)
                     .chars()
                     .filter(|c| c != &'\0')
@@ -69,13 +71,14 @@ pub async fn collect_drives_from_udisk() -> udisks2::Result<Vec<Drive>> {
                 label: blk.id_label().await?,
                 mount: None,
                 fstype: blk.id_type().await?,
+                mounted: false,
             };
 
-            if let Some(d) = drives.iter_mut().find(|i| i.path == drv_path) {
+            if let Some(d) = drives.iter_mut().find(|i| i.object_path == drv_path) {
                 d.blocks.push(block);
             } else {
                 drives.push(Drive {
-                    path: drv_path,
+                    object_path: drv_path,
                     id: String::new(),
                     model: String::new(),
                     ejectable: false,
@@ -94,7 +97,7 @@ pub async fn collect_all() -> udisks2::Result<Vec<Drive>> {
 
     let mut fstab = Drive {
         id: "fstab".to_owned(),
-        path: "fstab".to_owned(),
+        object_path: "fstab".to_owned(),
         model: "fstab".to_owned(),
         ejectable: false,
         blocks: Vec::new(),
@@ -107,22 +110,55 @@ pub async fn collect_all() -> udisks2::Result<Vec<Drive>> {
             .and_then(|d| d.blocks.iter_mut().find(|b| b.dev == i.dev));
         if let Some(block) = block {
             block.mount = i.path;
+            block.mounted = i.mounted;
         } else {
             fstab.blocks.push(Block {
-                id: i.dev.clone(),
+                object_path: String::new(),
                 dev: i.dev,
                 label: String::new(),
                 mount: i.path,
                 fstype: i.fs,
+                mounted: i.mounted,
             });
         }
     }
 
     drives.push(fstab);
-    drives.sort_by_cached_key(|b| b.path.clone());
+    drives.sort_by_cached_key(|b| b.object_path.clone());
     for i in &mut drives {
         i.blocks.sort_by_cached_key(|b| b.dev.clone());
     }
-    
-    return Ok(drives);
+
+    Ok(drives)
+}
+
+pub async fn mount(block: &Block) -> udisks2::Result<()> {
+    let mut drives: Vec<Drive> = Vec::new();
+    let client = udisks2::Client::new().await?;
+
+    client
+        .object(block.object_path.clone())?
+        .filesystem()
+        .await?
+        .mount(HashMap::new())
+        .await?;
+
+    //    client.part
+
+    Ok(())
+}
+
+pub async fn unmount(block: &Block) -> udisks2::Result<()> {
+    let mut drives: Vec<Drive> = Vec::new();
+    let client = udisks2::Client::new().await?;
+
+    client
+        .object(block.object_path.clone())?
+        .filesystem()
+        .await?
+        .unmount(HashMap::new())
+        .await?;
+    //    client.part
+
+    Ok(())
 }

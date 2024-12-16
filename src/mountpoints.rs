@@ -5,10 +5,22 @@ pub struct MountPoint {
     pub dev: String,
     pub path: Option<String>,
     pub fs: String,
+    pub mounted: bool,
 }
 
 impl MountPoint {
     pub fn collect_from_file(path: &str) -> Vec<MountPoint> {
+        const FSTYPE_IGNORE: [&str; 8] = [
+            "tmpfs",
+            "swap",
+            "devtmpfs",
+            "devpts",
+            "hugetlbfs",
+            "mqueue",
+            "fuse.portal",
+            "fuse.gvfsd-fuse",
+        ];
+        const PATH_IGNORE: [&str; 3] = ["/tmp", "/sys", "/proc"];
         std::io::BufReader::new(std::fs::File::open(PathBuf::from(path)).unwrap())
             .lines()
             .map_while(Result::ok)
@@ -21,17 +33,16 @@ impl MountPoint {
                         .into(),
                     path: Some(parts.next()?.to_string()),
                     fs: parts.next()?.into(),
+                    mounted: false,
                 })
             })
+            .filter(|p| !FSTYPE_IGNORE.contains(&p.fs.as_str()))
             .filter(|p| {
-                p.fs != "tmpfs" && p.fs != "swap"
-                    && p.path.clone().is_some_and(|p| {
-                        !p.starts_with("/sys")
-                            && !p.starts_with("/tmp")
-                            && !p.starts_with("/run")
-                            && !p.starts_with("/proc")
-                            && !p.starts_with("/dev")
-                    })
+                if let Some(p) = &p.path {
+                    !PATH_IGNORE.iter().any(|ignore| p.starts_with(ignore))
+                } else {
+                    false
+                }
             })
             .collect()
     }
@@ -44,12 +55,14 @@ impl MountPoint {
             .into_iter()
             .filter(|p| !mnt.iter().any(|f| f.path == p.path))
             .map(|p| MountPoint {
-                dev: p.dev,
-                path: None,
-                fs: p.fs,
+                mounted: false,
+                ..p
             })
             .collect();
 
-        mnt.into_iter().chain(fstab).collect()
+        mnt.into_iter()
+            .map(|m| MountPoint { mounted: true, ..m })
+            .chain(fstab)
+            .collect()
     }
 }
