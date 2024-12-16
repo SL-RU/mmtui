@@ -1,21 +1,13 @@
 mod drives;
 mod mountpoints;
 
-use std::{
-    ffi::{OsStr, OsString},
-    io::stderr,
-    os::unix::ffi::{OsStrExt, OsStringExt},
-    sync::Arc,
-    time::Duration,
-};
+use std::{io::stderr, sync::Arc, time::Duration};
 
 use crossterm::{
     event::{Event, EventStream, KeyCode, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use drives::Drive;
-use mountpoints::MountPoint;
 use ratatui::{
     layout::{Alignment, Constraint, Layout},
     prelude::CrosstermBackend,
@@ -28,12 +20,6 @@ use ratatui::{
 };
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
-
-enum Command {
-    None,
-    Mount(String),
-    Umount(String),
-}
 
 #[tokio::main]
 async fn main() -> udisks2::Result<()> {
@@ -134,9 +120,10 @@ fn draw(
             i.dev.clone(),
             i.label.clone(),
             i.mount.clone().unwrap_or_default(),
-            match i.mounted {
-                true => "M".to_owned(),
-                false => "O".to_owned(),
+            if i.mounted {
+                "M".to_owned()
+            } else {
+                "O".to_owned()
             },
         ])
     });

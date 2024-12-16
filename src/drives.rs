@@ -1,11 +1,5 @@
-use std::{
-    collections::HashMap,
-    ffi::{OsStr, OsString},
-    os::unix::ffi::{OsStrExt, OsStringExt},
-    sync::{Arc, Mutex},
-};
-
 use crate::mountpoints;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct Block {
@@ -36,10 +30,10 @@ pub async fn collect_drives_from_udisk() -> udisks2::Result<Vec<Drive>> {
         .into_iter()
         .flatten()
         .filter_map(|(object_path, _)| {
-            let Ok(obj) = client.object(object_path.clone()) else {
-                return None;
-            };
-            Some((object_path, obj))
+            client
+                .object(object_path.clone())
+                .ok()
+                .map(|obj| (object_path, obj))
         });
 
     for (path, i) in objects {
@@ -106,7 +100,7 @@ pub async fn collect_all() -> udisks2::Result<Vec<Drive>> {
     for i in mounts {
         let block = drives
             .iter_mut()
-            .find(|d| d.blocks.iter().find(|b| b.dev == i.dev).is_some())
+            .find(|d| d.blocks.iter().any(|b| b.dev == i.dev))
             .and_then(|d| d.blocks.iter_mut().find(|b| b.dev == i.dev));
         if let Some(block) = block {
             block.mount = i.path;
@@ -133,7 +127,6 @@ pub async fn collect_all() -> udisks2::Result<Vec<Drive>> {
 }
 
 pub async fn mount(block: &Block) -> udisks2::Result<()> {
-    let mut drives: Vec<Drive> = Vec::new();
     let client = udisks2::Client::new().await?;
 
     client
@@ -143,13 +136,10 @@ pub async fn mount(block: &Block) -> udisks2::Result<()> {
         .mount(HashMap::new())
         .await?;
 
-    //    client.part
-
     Ok(())
 }
 
 pub async fn unmount(block: &Block) -> udisks2::Result<()> {
-    let mut drives: Vec<Drive> = Vec::new();
     let client = udisks2::Client::new().await?;
 
     client
@@ -158,7 +148,6 @@ pub async fn unmount(block: &Block) -> udisks2::Result<()> {
         .await?
         .unmount(HashMap::new())
         .await?;
-    //    client.part
 
     Ok(())
 }
