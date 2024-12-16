@@ -10,3 +10,14 @@ sys-mount = "3.0.1"
 tokio = {version = "1.42.0", features = ["full"]}
 tokio-stream = "0.1.17"
 udisks2 = "0.2.0"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+must_use_candidate = { level = "allow" }
+expect_used = { level = "allow" }
+unwrap_used = { level = "warn" }
+panic = { level = "allow" }
+doc_markdown = { level = "allow" }
+
+[profile.release]
+strip = true
