@@ -1,10 +1,10 @@
 [package]
-name = "mmt"
+name = "mmtui"
 version = "0.1.0"
 edition = "2021"
 authors = ["Lutsai Aleksandr <s.lyra@ya.ru>"]
 description = "Terminal User Interface disk mount manager for TUI file managers"
-repository = "https://github.com/SL-RU/mmt"
+repository = "https://github.com/SL-RU/mmtui"
 license = "MIT"
 
 [dependencies]
