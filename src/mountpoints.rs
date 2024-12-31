@@ -29,7 +29,7 @@ impl MountPoint {
                 Some(MountPoint {
                     dev: parts
                         .next()
-                        .and_then(|d| if !d.starts_with('#') { Some(d) } else { None })?
+                        .and_then(|d| if d.starts_with('#') { None } else { Some(d) })?
                         .into(),
                     path: Some(parts.next()?.to_string()),
                     fs: parts.next()?.into(),

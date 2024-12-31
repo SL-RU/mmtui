@@ -2,6 +2,10 @@
 name = "mmt"
 version = "0.1.0"
 edition = "2021"
+authors = ["Lutsai Aleksandr <s.lyra@ya.ru>"]
+description = "Terminal User Interface disk mount manager for TUI file managers"
+repository = "https://github.com/SL-RU/mmt"
+license = "MIT"
 
 [dependencies]
 crossterm = { version = "0.28.1", features = ["event-stream"]}
@@ -15,9 +19,12 @@ udisks2 = "0.2.0"
 pedantic = { level = "warn", priority = -1 }
 must_use_candidate = { level = "allow" }
 expect_used = { level = "allow" }
-unwrap_used = { level = "warn" }
+unwrap_used = { level = "allow" }
 panic = { level = "allow" }
 doc_markdown = { level = "allow" }
 
 [profile.release]
 strip = true
+
+[package.metadata.aur]
+depends = ["udisks2"]
