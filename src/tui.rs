@@ -24,7 +24,16 @@ pub struct Tui {
     pub last_status: String,
 }
 
+const HELP: &str = "j/▲⋮k/▼⋮l/o/▶ - CD⋮m - Mount⋮u - Unmount⋮e - Eject⋮q - Quit";
+
 impl Tui {
+    fn set_status(&mut self, res: udisks2::Result<()>) {
+        self.last_status = match res {
+            Ok(()) => String::from("Ok"),
+            Err(e) => format!("Error: {e:?}"),
+        }
+    }
+
     pub async fn input(&mut self, key: KeyEvent) -> InputResult {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
@@ -37,21 +46,31 @@ impl Tui {
             }
             KeyCode::Char('m') => {
                 if let Some(b) = &self.selected {
-                    self.last_status = format!("{:?}", drives::mount(b).await);
+                    self.set_status(drives::mount(b).await);
                 }
                 InputResult::None
             }
             KeyCode::Char('u') => {
                 if let Some(b) = &self.selected {
-                    self.last_status = format!("{:?}", drives::unmount(b).await);
+                    self.set_status(drives::unmount(b).await);
                 }
                 InputResult::None
             }
-            KeyCode::Esc | KeyCode::Char('q') => InputResult::Quit,
-            KeyCode::Enter => {
-                let output = self.selected.clone().unwrap().mount.unwrap();
-                InputResult::QuitChangeDirectory(output)
+            KeyCode::Char('e') => {
+                if let Some(b) = &self.selected {
+                    self.set_status(drives::eject(b).await);
+                }
+                InputResult::None
             }
+            KeyCode::Enter | KeyCode::Char('l' | 'o') => {
+                if let Some(s) = &self.selected {
+                    let output = s.clone().mount.unwrap_or_default();
+                    InputResult::QuitChangeDirectory(output)
+                } else {
+                    InputResult::Quit
+                }
+            }
+            KeyCode::Esc | KeyCode::Char('q') => InputResult::Quit,
             _ => InputResult::None,
         }
     }
@@ -81,11 +100,20 @@ impl Tui {
             .and_then(|n| rows.get(n).cloned())
             .clone_into(&mut self.selected);
 
+        let max_size_field_length: u16 = rows
+            .iter()
+            .map(|r| r.size.len())
+            .max()
+            .unwrap_or(0)
+            .try_into()
+            .unwrap_or(0);
+
         let rows = rows.iter().map(|i| {
             Row::new(vec![
                 i.dev.clone(),
                 i.label.clone(),
                 i.mount.clone().unwrap_or_default(),
+                i.size.clone(),
                 if i.mounted {
                     "M".to_owned()
                 } else {
@@ -97,7 +125,8 @@ impl Tui {
             Constraint::Ratio(1, 3),
             Constraint::Ratio(1, 3),
             Constraint::Ratio(1, 3),
-            Constraint::Length(3),
+            Constraint::Length(max_size_field_length),
+            Constraint::Length(1),
         ];
         let table = Table::new(rows, widths)
             .row_highlight_style(Color::Green)
@@ -123,18 +152,14 @@ impl Tui {
                 };
 
                 format!(
-                    "dev: {:?} label: {:?} type: {:?} {mounted} ",
-                    s.dev, s.label, s.fstype
+                    "dev: {:?} label: {:?} type: {:?} size {} {mounted}",
+                    s.dev, s.label, s.fstype, s.size
                 )
             }
             None => String::new(),
         };
 
-        let info = format!(
-            "j - UP, k - DOWN, l - Goto mountpoint, m - Mount, u - Unmount, e - Eject\n{descr} {:?}",
-            self.last_status
-        );
-
+        let info = format!("{} | {HELP}\n{descr}", self.last_status);
         let info = Paragraph::new(info).wrap(Wrap { trim: true });
         frame.render_widget(info, layout[1]);
     }

@@ -27,8 +27,9 @@ async fn main() -> udisks2::Result<()> {
     let s = state.clone();
     tokio::spawn(async move {
         loop {
-            let drv = drives::collect_all().await.unwrap();
-            s.lock().await.clone_from(&drv);
+            if let Ok(drv) = drives::collect_all().await {
+                s.lock().await.clone_from(&drv);
+            };
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
     });

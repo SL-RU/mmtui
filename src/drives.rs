@@ -4,11 +4,13 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct Block {
     pub object_path: String,
+    pub drive_path: String,
     pub dev: String,
     pub label: String,
     pub mount: Option<String>,
     pub fstype: String,
     pub mounted: bool,
+    pub size: String,
 }
 
 #[derive(Debug, Clone)]
@@ -56,8 +58,14 @@ pub async fn collect_drives_from_udisk() -> udisks2::Result<Vec<Drive>> {
             }
         } else if let Ok(blk) = i.block().await {
             let drv_path = blk.drive().await?.to_string();
+            let size = if let Ok(size) = blk.size().await {
+                client.size_for_display(size, true, false)
+            } else {
+                String::new()
+            };
             let block = Block {
                 object_path: path,
+                drive_path: drv_path.clone(),
                 dev: String::from_utf8_lossy(&blk.device().await?)
                     .chars()
                     .filter(|c| c != &'\0')
@@ -66,6 +74,7 @@ pub async fn collect_drives_from_udisk() -> udisks2::Result<Vec<Drive>> {
                 mount: None,
                 fstype: blk.id_type().await?,
                 mounted: false,
+                size,
             };
 
             if let Some(d) = drives.iter_mut().find(|i| i.object_path == drv_path) {
@@ -108,11 +117,13 @@ pub async fn collect_all() -> udisks2::Result<Vec<Drive>> {
         } else {
             fstab.blocks.push(Block {
                 object_path: String::new(),
+                drive_path: fstab.object_path.clone(),
                 dev: i.dev,
                 label: String::new(),
                 mount: i.path,
                 fstype: i.fs,
                 mounted: i.mounted,
+                size: String::new(),
             });
         }
     }
@@ -147,6 +158,19 @@ pub async fn unmount(block: &Block) -> udisks2::Result<()> {
         .filesystem()
         .await?
         .unmount(HashMap::new())
+        .await?;
+
+    Ok(())
+}
+
+pub async fn eject(block: &Block) -> udisks2::Result<()> {
+    let client = udisks2::Client::new().await?;
+
+    client
+        .object(block.drive_path.clone())?
+        .drive()
+        .await?
+        .eject(HashMap::new())
         .await?;
 
     Ok(())
