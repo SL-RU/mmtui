@@ -10,8 +10,9 @@ pub struct MountPoint {
 
 impl MountPoint {
     pub fn collect_from_file(path: &str) -> Vec<MountPoint> {
-        const FSTYPE_IGNORE: [&str; 8] = [
+        const FSTYPE_IGNORE: [&str; 9] = [
             "tmpfs",
+            "ramfs",
             "swap",
             "devtmpfs",
             "devpts",
