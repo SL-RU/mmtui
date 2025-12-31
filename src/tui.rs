@@ -134,7 +134,7 @@ impl Tui {
 
         StatefulWidget::render(
             table,
-            block.inner(frame.area()),
+            block.inner(layout[0]),
             frame.buffer_mut(),
             &mut self.ts,
         );
