@@ -5,7 +5,7 @@ use ratatui::{
     style::Color,
     text::Line,
     widgets::{
-        Block, BorderType, Padding, Paragraph, Row, StatefulWidget, Table, TableState, Widget, Wrap,
+        Block, BorderType, Padding, Paragraph, Row, Table, TableState, Widget, Wrap,
     },
     Frame,
 };
@@ -132,10 +132,9 @@ impl Tui {
             .row_highlight_style(Color::Green)
             .highlight_symbol(">");
 
-        StatefulWidget::render(
+        frame.render_stateful_widget(
             table,
-            block.inner(frame.area()),
-            frame.buffer_mut(),
+            block.inner(layout[0]),
             &mut self.ts,
         );
 
