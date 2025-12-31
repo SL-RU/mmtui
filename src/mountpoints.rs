@@ -1,3 +1,4 @@
+use crate::config::Config;
 use std::{io::BufRead, path::PathBuf};
 
 #[derive(Debug)]
@@ -9,19 +10,7 @@ pub struct MountPoint {
 }
 
 impl MountPoint {
-    pub fn collect_from_file(path: &str) -> Vec<MountPoint> {
-        const FSTYPE_IGNORE: [&str; 9] = [
-            "tmpfs",
-            "ramfs",
-            "swap",
-            "devtmpfs",
-            "devpts",
-            "hugetlbfs",
-            "mqueue",
-            "fuse.portal",
-            "fuse.gvfsd-fuse",
-        ];
-        const PATH_IGNORE: [&str; 3] = ["/tmp", "/sys", "/proc"];
+    pub fn collect_from_file(path: &str, config: &Config) -> Vec<MountPoint> {
         std::io::BufReader::new(std::fs::File::open(PathBuf::from(path)).unwrap())
             .lines()
             .map_while(Result::ok)
@@ -37,10 +26,13 @@ impl MountPoint {
                     mounted: false,
                 })
             })
-            .filter(|p| !FSTYPE_IGNORE.contains(&p.fs.as_str()))
+            .filter(|p| !config.fstype_ignore.contains(&p.fs))
             .filter(|p| {
                 if let Some(p) = &p.path {
-                    !PATH_IGNORE.iter().any(|ignore| p.starts_with(ignore))
+                    !config
+                        .path_ignore
+                        .iter()
+                        .any(|ignore| p.starts_with(ignore))
                 } else {
                     false
                 }
@@ -48,9 +40,9 @@ impl MountPoint {
             .collect()
     }
 
-    pub fn collect() -> Vec<MountPoint> {
-        let mnt = Self::collect_from_file("/proc/self/mounts");
-        let fstab = Self::collect_from_file("/etc/fstab");
+    pub fn collect(config: &Config) -> Vec<MountPoint> {
+        let mnt = Self::collect_from_file("/proc/self/mounts", config);
+        let fstab = Self::collect_from_file("/etc/fstab", config);
 
         let fstab: Vec<MountPoint> = fstab
             .into_iter()

@@ -24,6 +24,46 @@ Binary will be in `target/release/mmtui`
 
 On Archlinux you can install from AUR, package is named `mmtui-bin`: https://aur.archlinux.org/packages/mmtui-bin
 
+## Configuration
+
+mmtui supports an optional configuration file located at:
+
+`$XDG_CONFIG_HOME/mmtui/mmtui.toml`
+
+Given a relative path, mmtui searches `XDG_CONFIG_HOME` first and then `XDG_CONFIG_DIRS`, using the first existing configuration file found. If no configuration file found, built-in defaults are used. If a configuration file exists, it fully overrides the default configuration. The lookup is based on [freedesktop.org XDG Base Directory Specification](https://specifications.freedesktop.org/basedir/latest/).
+
+The following shows the built-in default configuration used when no configuration file is present:
+```toml
+fstype_ignore = [
+        "tmpfs",
+        "ramfs",
+        "swap",
+        "devtmpfs",
+        "devpts",
+        "hugetlbfs",
+        "mqueue",
+        "fuse.portal",
+        "fuse.gvfsd-fuse",
+
+]
+path_ignore =  [
+        "/tmp",
+        "/sys",
+        "/proc",
+]
+```
+
+### Options
+
+All options must be present in the configuration file. Options cannot be omitted; use an empty list if no entries are desired.
+
+* `fstype_ignore`
+    List of filesystem types to ignore. Any mount whose filesystem type matches an entry in this list will be excluded.
+
+* `path_ignore`
+    List of absolute paths to ignore. Any mount point or path matching an entry in this list will be excluded.
+
+
 # Integrations
 
 ## Yazi - mount.yazi

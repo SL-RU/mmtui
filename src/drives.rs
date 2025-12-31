@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::mountpoints;
 use std::collections::HashMap;
 
@@ -94,9 +95,9 @@ pub async fn collect_drives_from_udisk() -> udisks2::Result<Vec<Drive>> {
     Ok(drives)
 }
 
-pub async fn collect_all() -> udisks2::Result<Vec<Drive>> {
+pub async fn collect_all(config: &Config) -> udisks2::Result<Vec<Drive>> {
     let mut drives = collect_drives_from_udisk().await?;
-    let mounts = mountpoints::MountPoint::collect();
+    let mounts = mountpoints::MountPoint::collect(config);
 
     let mut fstab = Drive {
         id: "fstab".to_owned(),

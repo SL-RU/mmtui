@@ -1,7 +1,9 @@
+mod config;
 mod drives;
 mod mountpoints;
 mod tui;
 
+use crate::config::Config;
 use crossterm::{
     event::{Event, EventStream, KeyEventKind},
     execute,
@@ -15,6 +17,7 @@ use tui::{InputResult, Tui};
 
 #[tokio::main]
 async fn main() -> udisks2::Result<()> {
+    let config = Config::load_or_default();
     enable_raw_mode().unwrap();
     execute!(stderr(), EnterAlternateScreen).unwrap();
     let mut terminal = Terminal::new(CrosstermBackend::new(stderr())).unwrap();
@@ -27,7 +30,7 @@ async fn main() -> udisks2::Result<()> {
     let s = state.clone();
     tokio::spawn(async move {
         loop {
-            if let Ok(drv) = drives::collect_all().await {
+            if let Ok(drv) = drives::collect_all(&config).await {
                 s.lock().await.clone_from(&drv);
             };
             tokio::time::sleep(Duration::from_millis(500)).await;
