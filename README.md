@@ -100,3 +100,18 @@ class mount(Command):
                 self.fm.cd(d)
         os.remove(p)
 ```
+
+# release-please
+[Release-please is used](https://github.com/googleapis/release-please) in this repository. Because of that there are rules for commit names:
+
+## How should I write my commits?
+
+Release Please assumes you are using [Conventional Commit messages](https://www.conventionalcommits.org/).
+
+The most important prefixes you should have in mind are:
+
+* `fix:` which represents bug fixes, and correlates to a [SemVer](https://semver.org/)
+  patch.
+* `feat:` which represents a new feature, and correlates to a SemVer minor.
+* `feat!:`,  or `fix!:`, `refactor!:`, etc., which represent a breaking change
+  (indicated by the `!`) and will result in a SemVer major.
