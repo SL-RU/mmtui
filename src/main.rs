@@ -32,7 +32,7 @@ async fn main() -> udisks2::Result<()> {
         loop {
             if let Ok(drv) = drives::collect_all(&config).await {
                 s.lock().await.clone_from(&drv);
-            };
+            }
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
     });
@@ -53,7 +53,7 @@ async fn main() -> udisks2::Result<()> {
 
         if key.kind == KeyEventKind::Press {
             match tui.input(key).await {
-                InputResult::None => continue,
+                InputResult::None => {}
                 InputResult::Quit => break,
                 InputResult::QuitChangeDirectory(p) => {
                     output_change_path = p;

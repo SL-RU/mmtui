@@ -4,9 +4,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Layout},
     style::Color,
     text::Line,
-    widgets::{
-        Block, BorderType, Padding, Paragraph, Row, Table, TableState, Widget, Wrap,
-    },
+    widgets::{Block, BorderType, Padding, Paragraph, Row, Table, TableState, Widget, Wrap},
     Frame,
 };
 
@@ -132,11 +130,7 @@ impl Tui {
             .row_highlight_style(Color::Green)
             .highlight_symbol(">");
 
-        frame.render_stateful_widget(
-            table,
-            block.inner(layout[0]),
-            &mut self.ts,
-        );
+        frame.render_stateful_widget(table, block.inner(layout[0]), &mut self.ts);
 
         let descr = match &self.selected {
             Some(s) => {
