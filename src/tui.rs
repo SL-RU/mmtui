@@ -98,18 +98,26 @@ impl Tui {
             .and_then(|n| rows.get(n).cloned())
             .clone_into(&mut self.selected);
 
-        let max_size_field_length: u16 = rows
-            .iter()
-            .map(|r| r.size.len())
-            .max()
-            .unwrap_or(0)
-            .try_into()
-            .unwrap_or(0);
+        let max_field_length = |field: fn(&drives::Block) -> &str| -> u16 {
+            rows.iter()
+                .map(|r| field(r).len())
+                .max()
+                .unwrap_or(0)
+                .try_into()
+                .unwrap_or(0)
+        };
+        let table_area = block.inner(layout[0]);
+        let max_dev_field_length = max_field_length(|r| &r.dev);
+        let max_label_field_length = max_field_length(|r| &r.label);
+        let max_fstype_field_length = max_field_length(|r| &r.fstype);
+        let max_mount_field_length = max_field_length(|r| r.mount.as_deref().unwrap_or_default());
+        let max_size_field_length = max_field_length(|r| &r.size);
 
         let rows = rows.iter().map(|i| {
             Row::new(vec![
                 i.dev.clone(),
                 i.label.clone(),
+                i.fstype.clone(),
                 i.mount.clone().unwrap_or_default(),
                 i.size.clone(),
                 if i.mounted {
@@ -120,9 +128,10 @@ impl Tui {
             ])
         });
         let widths = [
-            Constraint::Ratio(1, 3),
-            Constraint::Ratio(1, 3),
-            Constraint::Ratio(1, 3),
+            Constraint::Fill(max_dev_field_length.min(table_area.width / 3)),
+            Constraint::Fill(max_label_field_length),
+            Constraint::Fill(max_fstype_field_length),
+            Constraint::Fill(max_mount_field_length),
             Constraint::Length(max_size_field_length),
             Constraint::Length(1),
         ];
@@ -130,7 +139,7 @@ impl Tui {
             .row_highlight_style(Color::Green)
             .highlight_symbol(">");
 
-        frame.render_stateful_widget(table, block.inner(layout[0]), &mut self.ts);
+        frame.render_stateful_widget(table, table_area, &mut self.ts);
 
         let descr = match &self.selected {
             Some(s) => {
@@ -155,5 +164,77 @@ impl Tui {
         let info = format!("{} | {HELP}\n{descr}", self.last_status);
         let info = Paragraph::new(info).wrap(Wrap { trim: true });
         frame.render_widget(info, layout[1]);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::{backend::TestBackend, Terminal};
+
+    fn render_row(dev: &str, terminal_width: u16) -> String {
+        let mut tui = Tui {
+            drv: vec![drives::Drive {
+                id: String::new(),
+                object_path: "/drive".to_owned(),
+                model: String::new(),
+                ejectable: false,
+                blocks: vec![drives::Block {
+                    object_path: String::new(),
+                    drive_path: "/drive".to_owned(),
+                    dev: dev.to_owned(),
+                    label: "photos".to_owned(),
+                    mount: Some("/run/media/user/photos".to_owned()),
+                    fstype: "exfat".to_owned(),
+                    mounted: true,
+                    size: "64 GB".to_owned(),
+                }],
+            }],
+            ..Default::default()
+        };
+        let mut terminal = Terminal::new(TestBackend::new(terminal_width, 20)).unwrap();
+        terminal.draw(|frame| tui.draw(frame)).unwrap();
+
+        let buffer = terminal.backend().buffer();
+        buffer
+            .content
+            .chunks(buffer.area.width.into())
+            .map(|line| line.iter().map(ratatui::buffer::Cell::symbol).collect())
+            .find(|line: &String| line.starts_with("│ >"))
+            .unwrap()
+    }
+
+    fn column(row: &str, text: &str) -> usize {
+        row.find(text).expect(text)
+    }
+
+    // The user identifies a device by its label and fstype, and the full mount path must stay visible.
+    #[test]
+    fn row_shows_fstype_between_label_and_full_mount_path() {
+        let row = render_row("/dev/sda1", 100);
+        assert!(column(&row, "photos") < column(&row, "exfat"));
+        assert!(column(&row, "exfat") < column(&row, "/run/media/user/photos"));
+    }
+
+    // The free width goes to all columns, in proportion to the length of their content.
+    // A short label must not get as much width as a long mount path.
+    #[test]
+    fn free_width_follows_content_length() {
+        let row = render_row("/dev/sda1", 100);
+        let dev_width = column(&row, "photos") - column(&row, "/dev/sda1");
+        let label_width = column(&row, "exfat") - column(&row, "photos");
+        let mount_width = column(&row, "64 GB") - column(&row, "/run/media/user/photos");
+        assert!(dev_width > "/dev/sda1 ".len());
+        assert!(label_width < dev_width);
+        assert!(dev_width < mount_width);
+    }
+
+    // Network mounts (sshfs, NFS) have long dev names.
+    // The other columns must stay visible, mainly the mount path, because `l` goes to it.
+    #[test]
+    fn long_dev_name_does_not_hide_other_columns() {
+        let row = render_row("user@fileserver.example.com:/srv/share", 80);
+        assert!(column(&row, "photos") < column(&row, "exfat"));
+        assert!(column(&row, "exfat") < column(&row, "/run/media/user/photos"));
     }
 }
